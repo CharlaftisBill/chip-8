@@ -47,7 +47,7 @@ init :: proc() -> ^Display{
 	// methods
 	self.destroy = deinit
 	self.clear   = clear
-	self.draw    = draw
+	self.draw    = draw2
 	self.update  = update
 
 	self->clear()
@@ -99,6 +99,52 @@ draw :: proc(self: ^Display) -> (err: DisplayError){
 		}
 		fmt.println()
 	}
+	return nil
+}
+
+@(private)
+draw2 :: proc(self: ^Display) -> (err: DisplayError){
+
+	current_width, current_height := get_terminal_size() or_return
+	width_offset	:= (current_width - DISPLAY_WIDTH) / 2
+	height_offset	:= (current_height - DISPLAY_HEIGHT) / 2
+	
+	if current_width < DISPLAY_WIDTH || current_height < DISPLAY_HEIGHT {
+		return errors.NewDisplayTerminalSizeError("DRAW")
+	}
+
+	// Clears the terminal
+	fmt.print("\x1b[2J\x1b[H")
+	
+	for y in 0..<current_height{
+
+		// fmt.println(y, "<", height_offset, " --> ",y < height_offset)
+		if y <= height_offset || y >= DISPLAY_HEIGHT{
+			for _ in  0..<current_width do fmt.printf("\x1b[30m█\x1b[0m")
+			fmt.println()
+			continue
+		}
+
+		for x in 0..<current_width{
+			// fmt.println(x, "<", current_width - width_offset -1, " --> ",x < width_offset)
+			if x <= width_offset || (x - width_offset) >= DISPLAY_WIDTH{
+				fmt.printf("\x1b[30m█\x1b[0m")
+				continue
+			}
+
+			// fmt.printfln("'%d'", x - width_offset)
+			switch self._canvas[x - width_offset][y]{
+				case .On:
+					fmt.printf("\x1b[97m█\x1b[0m")
+				case .Dim:
+					fmt.printf("\x1b[90m█\x1b[0m")
+				case .Off:
+					fmt.printf("\x1b[30m█\x1b[0m")
+			}
+		}
+		fmt.println()
+	}
+
 	return nil
 }
 
