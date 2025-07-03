@@ -8,7 +8,8 @@ import "cmd/inputs"
 import "cmd/display"
 import "cmd/helpers"
 
-//https://tobiasvl.github.io/blog/write-a-chip-8-emulator/
+// https://tobiasvl.github.io/blog/write-a-chip-8-emulator/
+// https://github.com/dch-GH/chip8-odin/blob/main/src/interpreter.odin
 
 main :: proc() {
 	dis :=display.init()
