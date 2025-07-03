@@ -50,6 +50,9 @@ init :: proc() -> ^Display{
 	self.draw    = draw2
 	self.update  = update
 
+	// Hide cursor
+    fmt.println("\033[?25l");
+
 	self->clear()
 	return self
 }
@@ -60,6 +63,10 @@ deinit :: proc(self: ^Display){
 	}
 	free(self._canvas)
 	free(self)
+
+
+    // Show cursor before exit
+    fmt.println("\033[?25h");
 
 	// Returns to previous screen buffer
 	fmt.println(END_ALTERNATE_SCREEN_BUFFER)
@@ -118,22 +125,29 @@ draw2 :: proc(self: ^Display) -> (err: DisplayError){
 	
 	for y in 0..<current_height{
 
-		// fmt.println(y, "<", height_offset, " --> ",y < height_offset)
-		if y <= height_offset || y >= DISPLAY_HEIGHT{
-			for _ in  0..<current_width do fmt.printf("\x1b[30m█\x1b[0m")
+		if y < height_offset || (y - height_offset) > DISPLAY_HEIGHT{
+			// for _ in  0..<current_width do fmt.printf("\x1b[90m█\x1b[0m")
 			fmt.println()
+			continue
+		}else if y == height_offset{
+			horizontal_display_border(width_offset, "┌", "┐")
+			continue
+		}else if (y - height_offset) == DISPLAY_HEIGHT{
+			horizontal_display_border(width_offset, "└", "┘")
 			continue
 		}
 
 		for x in 0..<current_width{
-			// fmt.println(x, "<", current_width - width_offset -1, " --> ",x < width_offset)
-			if x <= width_offset || (x - width_offset) >= DISPLAY_WIDTH{
-				fmt.printf("\x1b[30m█\x1b[0m")
+			if x < width_offset || (x - width_offset) > DISPLAY_WIDTH{
+				fmt.printf(" ")
+				continue
+			}else if x == width_offset || (x - width_offset) == DISPLAY_WIDTH{
+				fmt.printf("\033[32m│\033[0m")
 				continue
 			}
 
 			// fmt.printfln("'%d'", x - width_offset)
-			switch self._canvas[x - width_offset][y]{
+			switch self._canvas[x - width_offset][y - height_offset]{
 				case .On:
 					fmt.printf("\x1b[97m█\x1b[0m")
 				case .Dim:
@@ -251,5 +265,14 @@ when ODIN_OS == .Linux || ODIN_OS == .Darwin {
 		
 		return int(ws.ws_col), int(ws.ws_row), true
 	}
+}
+//#endregion
+
+//#region GET_TERMINAL_SIZE
+@(private)
+horizontal_display_border :: proc(width_offset: int, leftChar, rightChar: string){
+	fmt.printf("%*s\033[32m%s\033[0m", width_offset, " ", leftChar)
+	for _ in  0..<DISPLAY_WIDTH-1 do fmt.printf("\033[32m─\033[0m")
+	fmt.printfln("\033[32m%s\033[0m",rightChar)
 }
 //#endregion
