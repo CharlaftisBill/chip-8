@@ -31,4 +31,22 @@ main :: proc() {
 		}
 
 	}
+
+	dis->clear()
+
+	for x in 0..<display.DISPLAY_WIDTH{
+		for y in 0..<display.DISPLAY_HEIGHT{
+			if y %2 ==0{
+				dis->update(x, y, .On)
+				dis->draw()
+				time.sleep(200 * time.Millisecond)
+				// dis->clear()
+			}
+		}
+
+		if inputs.did_interrupted(){
+			break
+		}
+
+	}
 }
