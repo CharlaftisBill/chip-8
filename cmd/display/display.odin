@@ -30,10 +30,10 @@ Display ::struct{
 	_canvas			: ^[DISPLAY_WIDTH][DISPLAY_HEIGHT]Pixel,
 
 	// Methods
-	destroy  : proc(self :^Display),
-	clear    : proc(self :^Display),
-	draw  	 : proc(display :^Display) -> DisplayError,
-	update 	 : proc(self :^Display, x, y: int, turn_to: Pixel) -> (err: DisplayError)
+	display_deinit		: proc(self :^Display),
+	display_clear		: proc(self :^Display),
+	display_draw		: proc(display :^Display) -> DisplayError,
+	display_update		: proc(self :^Display, x, y: int, turn_to: Pixel) -> (err: DisplayError)
 }
 
 init :: proc() -> ^Display{
@@ -44,16 +44,18 @@ init :: proc() -> ^Display{
 
 	// fields
 	self._canvas 		= new([DISPLAY_WIDTH][DISPLAY_HEIGHT]Pixel)
+	
 	// methods
-	self.destroy = deinit
-	self.clear   = clear
-	self.draw    = draw
-	self.update  = update
+	self.display_deinit		= deinit
+	self.display_clear   	= clear
+	self.display_draw    	= draw
+	self.display_update  	= update
 
 	// Hide cursor
     fmt.println("\033[?25l");
 
-	self->clear()
+	// init the canvas
+	self->display_clear()
 	return self
 }
 
@@ -93,10 +95,10 @@ draw :: proc(self: ^Display) -> (err: DisplayError){
 			fmt.println()
 			continue
 		}else if y == height_offset{
-			horizontal_display_border(width_offset, "╭", "╮")
+			horizontaldisplay_border(width_offset, "╭", "╮")
 			continue
 		}else if (y - height_offset) == DISPLAY_HEIGHT{
-			horizontal_display_border(width_offset, "╰", "╯")
+			horizontaldisplay_border(width_offset, "╰", "╯")
 			continue
 		}
 
@@ -233,7 +235,7 @@ when ODIN_OS == .Linux || ODIN_OS == .Darwin {
 
 //#region GET_TERMINAL_SIZE
 @(private)
-horizontal_display_border :: proc(width_offset: int, leftChar, rightChar: string){
+horizontaldisplay_border :: proc(width_offset: int, leftChar, rightChar: string){
 	fmt.printf("%*s\033[32m%s\033[0m", width_offset, " ", leftChar)
 	for _ in  0..<DISPLAY_WIDTH-1 do fmt.printf("\033[32m─\033[0m")
 	fmt.printfln("\033[32m%s\033[0m",rightChar)

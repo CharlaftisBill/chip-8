@@ -22,51 +22,53 @@ FONTS :: [5 * 16]u8 {
 }
 
 Chip8 :: struct{
-    _Memory     : [4096]byte,
-    _PC         : uint,
-    _I          : u16,
-    _CallStack  : [dynamic]u16,
-    _DelayTimer : u8,
-    _SoundTimer : u8,
-    _Registers  : [16]byte,
-    _Display    : ^display.Display,
+    _memory         : [4096]byte,
+    _PC             : uint,
+    _I              : u16,
+    _callStack      : [dynamic]u16,
+    _delayTimer     : u8,
+    _soundTimer     : u8,
+    _registers      : [16]byte,
+    using _display  : ^display.Display,
 
     // Methods
-    destroy     : proc(self: ^Chip8),
+    deinit      : proc(self: ^Chip8),
     stack_push  : proc(self: ^Chip8, element_to_push: u16),
     stack_pop   : proc(self: ^Chip8) -> u16,
 }
 
 init :: proc() -> ^Chip8{
     chip8 := new(Chip8)
-    chip8._CallStack    = make([dynamic]u16)
-    chip8._Memory       = [4096]byte{}
-    chip8._Registers    = [16]byte{}
-    chip8._Display      = display.init()
+    chip8._callStack    = make([dynamic]u16)
+    chip8._memory       = [4096]byte{}
+    chip8._registers    = [16]byte{}
+    chip8._display      = display.init()
 
     // Methods
-    chip8.destroy       = deinit
+    chip8.deinit        = deinit
     chip8.stack_push    = stack_push
     chip8.stack_pop     = stack_pop
 
     // Load FONTS
     for font_sprite, i in FONTS{
-        chip8._Memory[i] = font_sprite
+        chip8._memory[i] = font_sprite
     }
 
     return chip8
 }
 
-deinit :: proc(self: ^Chip8){
-    delete(self._CallStack)
-    self._Display->destroy()
+deinit :: proc(using self: ^Chip8){
+    delete(_callStack)
+    display_deinit(_display)
     free(self)
 }
 
+@(private)
 stack_push :: proc(self: ^Chip8, element_to_push: u16){
-    append(&self._CallStack, 123)
+    append(&self._callStack, 123)
 }
 
+@(private)
 stack_pop :: proc(self: ^Chip8) -> u16{
-    return pop(&self._CallStack)
+    return pop(&self._callStack)
 }
