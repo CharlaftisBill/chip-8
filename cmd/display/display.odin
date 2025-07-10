@@ -68,7 +68,7 @@ deinit :: proc(self: ^Display){
 
 
     // Show cursor before exit
-    fmt.println("\033[?25h");
+    fmt.println("\033[?25h")
 
 	// Returns to previous screen buffer
 	fmt.println(END_ALTERNATE_SCREEN_BUFFER)

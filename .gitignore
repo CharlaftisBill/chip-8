@@ -31,3 +31,4 @@ go.work.sum
 # .idea/
 # .vscode/
 chip-8
+input_test*

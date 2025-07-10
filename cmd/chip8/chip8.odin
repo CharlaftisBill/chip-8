@@ -1,5 +1,6 @@
 package chip8
 
+import "../inputs"
 import "../display"
 
 FONTS :: [5 * 16]u8 {
@@ -30,6 +31,7 @@ Chip8 :: struct{
     _soundTimer     : u8,
     _registers      : [16]byte,
     using _display  : ^display.Display,
+    using _keyboard : ^inputs.Keyboard,
 
     // Methods
     deinit      : proc(self: ^Chip8),
@@ -43,6 +45,7 @@ init :: proc() -> ^Chip8{
     chip8._memory       = [4096]byte{}
     chip8._registers    = [16]byte{}
     chip8._display      = display.init()
+    chip8._keyboard     = inputs.init()
 
     // Methods
     chip8.deinit        = deinit
@@ -60,6 +63,7 @@ init :: proc() -> ^Chip8{
 deinit :: proc(using self: ^Chip8){
     delete(_callStack)
     display_deinit(_display)
+    inputs_deinit(_keyboard)
     free(self)
 }
 

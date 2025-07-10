@@ -44,3 +44,15 @@ NewDisplayTerminalPositionError :: proc(x, y: int, operation: string) -> Display
         message     = "The requested position is out of the contexts of the screen",
     }
 }
+
+KeyboardNoKeyMapExistsError :: struct{
+    operation   : string,
+    message     : string,
+}
+
+NewKeyboardNoKeyMapExistsError :: proc(operation: string) -> KeyboardNoKeyMapExistsError{
+    return KeyboardNoKeyMapExistsError{
+        operation   = operation,
+        message     = "There is no key mapped to",
+    }
+}
