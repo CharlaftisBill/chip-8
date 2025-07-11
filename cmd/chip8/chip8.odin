@@ -62,14 +62,14 @@ init :: proc() -> ^Chip8{
 
 deinit :: proc(using self: ^Chip8){
     delete(_callStack)
-    display_deinit(_display)
     inputs_deinit(_keyboard)
+    display_deinit(_display)
     free(self)
 }
 
 @(private)
 stack_push :: proc(self: ^Chip8, element_to_push: u16){
-    append(&self._callStack, 123)
+    append(&self._callStack, element_to_push)
 }
 
 @(private)

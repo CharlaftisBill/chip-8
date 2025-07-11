@@ -18,34 +18,41 @@ main :: proc() {
 	chip8 := chip8.init()
 	defer chip8->deinit()
 	
-	// for x in 0..<display.DISPLAY_WIDTH{
-	// 	for y in 0..<display.DISPLAY_HEIGHT{
-	// 		if y % 2 == x % 2 {
-	// 			chip8->display_update(x, y, .On)
-	// 			time.sleep(200 * time.Millisecond)
-	// 		}
-	// 	}
-		
-	// 	chip8->display_draw()
-	// }
-
+	x := 1
+	y := 1
 	for {
-		last_key := chip8->wait_keypress() or_break
 
-		x,y :int
-		switch last_key{
-			case "w":
-				y+=1
-			case "s":
-				y-=1
-			case "d":
-				x+=1
-			case "a":
-				x-=1
+		if x < 0{
+			x = 0
+		} else if x >= 64{
+			x =63
+		}
+
+		if y < 0{
+			y = 0
+		} else if y >= 32{
+			y = 31
 		}
 
 		chip8->display_update(x, y, .On)
 		chip8->display_draw()
-		time.sleep(200 * time.Millisecond)
+		last_key, err := chip8->wait_keypress()
+		if err != nil {
+			fmt.println("Error Occurred", err)
+			os.exit(1)
+		}
+
+		switch last_key{
+			case '5':
+				y-=1
+			case '8':
+				y+=1
+			case '9':
+				x+=1
+			case '7':
+				x-=1
+		}
+
+		time.sleep(60 * time.Millisecond)
 	}
 }

@@ -5,6 +5,7 @@ import "core:os"
 import "core:fmt"
 import "core:mem"
 import "../errors"
+import psx "core:sys/posix"
 
 DISPLAY_WIDTH 	:: 64
 DISPLAY_HEIGHT 	:: 32
@@ -56,6 +57,7 @@ init :: proc() -> ^Display{
 
 	// init the canvas
 	self->display_clear()
+
 	return self
 }
 
@@ -65,7 +67,6 @@ deinit :: proc(self: ^Display){
 	}
 	free(self._canvas)
 	free(self)
-
 
     // Show cursor before exit
     fmt.println("\033[?25h")
@@ -78,7 +79,7 @@ deinit :: proc(self: ^Display){
 draw :: proc(self: ^Display) -> (err: DisplayError){
 
 	current_width, current_height := get_terminal_size() or_return
-	width_offset	:= (current_width - DISPLAY_WIDTH) / 2
+	width_offset	:= (current_width  - DISPLAY_WIDTH)  / 2
 	height_offset	:= (current_height - DISPLAY_HEIGHT) / 2
 	
 	if current_width < DISPLAY_WIDTH || current_height < DISPLAY_HEIGHT {
