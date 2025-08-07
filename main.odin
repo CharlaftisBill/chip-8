@@ -18,24 +18,15 @@ main :: proc() {
 	chip8 := chip8.init()
 	defer chip8->deinit()
 	
-	x := 1
-	y := 1
+	chip8->display_update(0, 0, .On)
+	chip8->display_update(63, 0, .On)
+	chip8->display_update(63, 31, .On)
+	chip8->display_update(0, 31, .On)
+	chip8->display_draw()
+
+	x := 0
+	y := 0
 	for {
-
-		if x < 0{
-			x = 0
-		} else if x >= 64{
-			x =63
-		}
-
-		if y < 0{
-			y = 0
-		} else if y >= 32{
-			y = 31
-		}
-
-		chip8->display_update(x, y, .On)
-		chip8->display_draw()
 		last_key, err := chip8->wait_keypress()
 		if err != nil {
 			fmt.println("Error Occurred", err)
@@ -53,6 +44,8 @@ main :: proc() {
 				x-=1
 		}
 
-		time.sleep(60 * time.Millisecond)
+		chip8->display_update(x, y, .On) or_continue
+		chip8->display_draw() or_continue
+		// time.sleep(60 * time.Millisecond)
 	}
 }

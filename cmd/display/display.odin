@@ -58,6 +58,8 @@ init :: proc() -> ^Display{
 	// init the canvas
 	self->display_clear()
 
+	initial_frame_print()
+
 	return self
 }
 
@@ -76,7 +78,51 @@ deinit :: proc(self: ^Display){
 }
 
 @(private)
+initial_frame_print :: proc() -> (err: DisplayError){
+	
+	current_width, current_height := get_terminal_size() or_return
+	width_offset	:= ((current_width  - DISPLAY_WIDTH)  / 2) - 1
+	height_offset	:= ((current_height - DISPLAY_HEIGHT) / 2) - 1
+	
+	if current_width < DISPLAY_WIDTH || current_height < DISPLAY_HEIGHT {
+		return errors.NewDisplayTerminalSizeError("DRAW")
+	}
+
+	// Clears the terminal
+	fmt.print("\x1b[2J\x1b[H")
+
+	// Go to proper terminal point
+	fmt.printfln("\033[%d;1H", height_offset)
+	horizontaldisplay_border(width_offset, "╭", "╮")
+
+	for y in height_offset+2..<height_offset + DISPLAY_HEIGHT + 2{
+		fmt.printf("\033[%d;%dH\033[32m│\033[0m", y, width_offset + 1)
+		fmt.printf("\033[%d;%dH\033[32m│\033[0m", y, width_offset + DISPLAY_WIDTH + 2)
+	}
+	fmt.println()
+	horizontaldisplay_border(width_offset, "╰", "╯")
+
+	return nil
+}
+
+@(private)
 draw :: proc(self: ^Display) -> (err: DisplayError){
+
+	current_width, current_height := get_terminal_size() or_return
+	width_offset	:= (current_width  - DISPLAY_WIDTH)  / 2
+	height_offset	:= (current_height - DISPLAY_HEIGHT) / 2
+
+	for y in 0..<DISPLAY_HEIGHT{
+		for x in 0..<DISPLAY_WIDTH{
+			if self._canvas[x][y] == .On{
+				fmt.printfln("\033[%d;%dH\x1b[97m█\x1b[0m", y + height_offset + 1, x + width_offset + 1)
+			}
+		}
+	}
+	return nil
+}
+
+draw2 :: proc(self: ^Display) -> (err: DisplayError){
 
 	current_width, current_height := get_terminal_size() or_return
 	width_offset	:= (current_width  - DISPLAY_WIDTH)  / 2
@@ -143,6 +189,7 @@ clear :: proc(self: ^Display){
 
 @(private)
 update :: proc(self: ^Display, x, y: int, turn_to: Pixel) -> (err: DisplayError){
+	
 	if x < 0 || x >= DISPLAY_WIDTH || y < 0 || y >= DISPLAY_HEIGHT{
 		return errors.NewDisplayTerminalPositionError(x, y, "update")
 	}
@@ -238,7 +285,7 @@ when ODIN_OS == .Linux || ODIN_OS == .Darwin {
 @(private)
 horizontaldisplay_border :: proc(width_offset: int, leftChar, rightChar: string){
 	fmt.printf("%*s\033[32m%s\033[0m", width_offset, " ", leftChar)
-	for _ in  0..<DISPLAY_WIDTH-1 do fmt.printf("\033[32m─\033[0m")
+	for _ in  0..<DISPLAY_WIDTH do fmt.printf("\033[32m─\033[0m")
 	fmt.printfln("\033[32m%s\033[0m",rightChar)
 }
 //#endregion
