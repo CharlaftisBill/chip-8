@@ -94,12 +94,11 @@ alpha_decoder :: proc(using self : ^decoded_instruction, using inter : ^Chip8){
 delta_decoder :: proc(using self : ^decoded_instruction, using inter : ^Chip8){
     assert(selector == 0xD, "`delta_decoder` can be used only if instruction is of type `Dxxx`")
 
-    x := _registers[X] // & display.DISPLAY_WIDTH	// same as x % 64
-	y := _registers[Y] // & display.DISPLAY_HEIGHT	// same as y % 32
+    x := _registers[X]
+	y := _registers[Y]
     _registers[0xf] = 0
 
     for sprite_row in 0..<u8(N) {
-        // assert(sprite_row < len(_memory),"The sprite row exceeds the memory boundaries")
         sprite := _memory[_I + u16(sprite_row)]
 
         for cur_bit in 0..<u8(8){
@@ -113,7 +112,4 @@ delta_decoder :: proc(using self : ^decoded_instruction, using inter : ^Chip8){
             }
         }
     }
-
-    // err := inter->display_draw()
-    // assert(err == nil, "Problem occurred during graphics rendering")
 }

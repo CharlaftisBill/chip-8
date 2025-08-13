@@ -32,13 +32,19 @@ interpreter_load :: proc(using self: ^Chip8, path : string) -> (err :os.Error){
 }
 
 interpreter_run :: proc(using self: ^Chip8){
+    max_tic_time :: 1250 * time.Millisecond
+
     for _is_running{
         for _is_paused {}
         
+        start := time.now()
         execute(self, decode(fetch(self)))
-
-        // 800 instructions per second (1000 / 800 = 1.25 -> 1250ms)
-        time.sleep(1250 * time.Millisecond)
+        elapsed := time.since(start)
+        
+        remaining := max_tic_time - elapsed
+        if remaining > 0 {
+            time.sleep(remaining)
+        }
     }
 }
 
@@ -89,16 +95,6 @@ get_instruction_nibble :: proc(instruction : Instruction, position : u16) -> u8{
 @(private)
 combine_2_u8_to_u16 :: proc(first_half: u8, second_half: u8) -> u16{
     return ((u16)(first_half) << 8) | (u16)(second_half)
-}
-
-@(private)
-u8_to_bool_array :: proc(byte_to_convert: u8) -> (result : [8]bool){
-    mask :u8 = 0b10000000
-    for i in 0..<8{
-        result[i] = (byte_to_convert & (mask >> (u8)(i))) != 0
-    }
-
-    return result
 }
 
 @(private)
