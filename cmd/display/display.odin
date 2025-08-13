@@ -7,8 +7,8 @@ import "core:mem"
 import "../errors"
 import psx "core:sys/posix"
 
-DISPLAY_WIDTH 	:: 64
-DISPLAY_HEIGHT 	:: 32
+DISPLAY_WIDTH 	:: u8(64)
+DISPLAY_HEIGHT 	:: u8(32)
 
 @(private)
 START_ALTERNATE_SCREEN_BUFFER :: "\033[?1049h"
@@ -21,11 +21,7 @@ DisplayError :: union {
 	errors.DisplayTerminalPositionError
 }
 
-Pixel :: enum{
-	Off,	// Pixel is off
-	Dim, 	// Pixel was On and in next refresh should be off
-	On, 	// Pixel is not off
-}
+Pixel :: bool
 
 Display ::struct{
 	_canvas			: ^[DISPLAY_WIDTH][DISPLAY_HEIGHT]Pixel,
@@ -34,7 +30,8 @@ Display ::struct{
 	display_deinit		: proc(self :^Display),
 	display_clear		: proc(self :^Display),
 	display_draw		: proc(display :^Display) -> DisplayError,
-	display_update		: proc(self :^Display, x, y: int, turn_to: Pixel) -> (err: DisplayError)
+	display_update		: proc(self :^Display, x, y: u8, turn_to: Pixel) -> (err: DisplayError),
+	display_flip_pixel	: proc(using self: ^Display,  x, y: u8, pixel_active: Pixel) -> (collision: bool)
 }
 
 init :: proc() -> ^Display{
@@ -49,8 +46,9 @@ init :: proc() -> ^Display{
 	// methods
 	self.display_deinit		= deinit
 	self.display_clear   	= clear
-	self.display_draw    	= draw
+	self.display_draw    	= draw2
 	self.display_update  	= update
+	self.display_flip_pixel	= flip_pixel
 
 	// Hide cursor
     fmt.println("\033[?25l");
@@ -93,20 +91,40 @@ initial_frame_print :: proc() -> (err: DisplayError){
 
 	// Go to proper terminal point
 	fmt.printfln("\033[%d;1H", height_offset)
-	horizontaldisplay_border(width_offset, "╭", "╮")
+	horizontal_display_border(width_offset, "╭", "╮")
 
 	for y in height_offset+2..<height_offset + DISPLAY_HEIGHT + 2{
 		fmt.printf("\033[%d;%dH\033[32m│\033[0m", y, width_offset + 1)
 		fmt.printf("\033[%d;%dH\033[32m│\033[0m", y, width_offset + DISPLAY_WIDTH + 2)
 	}
 	fmt.println()
-	horizontaldisplay_border(width_offset, "╰", "╯")
+	horizontal_display_border(width_offset, "╰", "╯")
 
 	return nil
 }
 
 @(private)
-draw :: proc(self: ^Display) -> (err: DisplayError){
+draw :: proc(self: ^Display, x, y: u8) -> (err: DisplayError){
+
+	current_width, current_height := get_terminal_size() or_return
+	width_offset	:= (current_width  - DISPLAY_WIDTH)  / 2
+	height_offset	:= (current_height - DISPLAY_HEIGHT) / 2
+
+	// fmt.printfln("Draw in %d,%d '%v'", x, y, self._canvas[x][y]? "█": " ")
+
+	if self._canvas[x][y]{
+		fmt.print("\033[1;1H'█'")
+		fmt.printfln("\033[%d;%dH\x1b[97m█\x1b[0m", y + height_offset + 1, x + width_offset + 1)
+	} else{
+		fmt.print("\033[1;1H' '")
+		fmt.printfln("\033[%d;%dH ", y + height_offset + 1, x + width_offset + 1)
+	}
+
+	return nil
+}
+
+@(private)
+draw2 :: proc(self: ^Display) -> (err: DisplayError){
 
 	current_width, current_height := get_terminal_size() or_return
 	width_offset	:= (current_width  - DISPLAY_WIDTH)  / 2
@@ -114,7 +132,7 @@ draw :: proc(self: ^Display) -> (err: DisplayError){
 
 	for y in 0..<DISPLAY_HEIGHT{
 		for x in 0..<DISPLAY_WIDTH{
-			if self._canvas[x][y] == .On{
+			if self._canvas[x][y]{
 				fmt.printfln("\033[%d;%dH\x1b[97m█\x1b[0m", y + height_offset + 1, x + width_offset + 1)
 			}
 		}
@@ -122,95 +140,48 @@ draw :: proc(self: ^Display) -> (err: DisplayError){
 	return nil
 }
 
-draw2 :: proc(self: ^Display) -> (err: DisplayError){
-
-	current_width, current_height := get_terminal_size() or_return
-	width_offset	:= (current_width  - DISPLAY_WIDTH)  / 2
-	height_offset	:= (current_height - DISPLAY_HEIGHT) / 2
-	
-	if current_width < DISPLAY_WIDTH || current_height < DISPLAY_HEIGHT {
-		return errors.NewDisplayTerminalSizeError("DRAW")
-	}
-
-	// Clears the terminal
-	fmt.print("\x1b[2J\x1b[H")
-	
-	for y in 0..<current_height{
-
-		if y < height_offset || (y - height_offset) > DISPLAY_HEIGHT{
-			// for _ in  0..<current_width do fmt.printf("\x1b[90m█\x1b[0m")
-			fmt.println()
-			continue
-		}else if y == height_offset{
-			horizontaldisplay_border(width_offset, "╭", "╮")
-			continue
-		}else if (y - height_offset) == DISPLAY_HEIGHT{
-			horizontaldisplay_border(width_offset, "╰", "╯")
-			continue
-		}
-
-		for x in 0..<current_width{
-			if x < width_offset || (x - width_offset) > DISPLAY_WIDTH{
-				fmt.printf(" ")
-				continue
-			}else if x == width_offset || (x - width_offset) == DISPLAY_WIDTH{
-				fmt.printf("\033[32m│\033[0m")
-				continue
-			}
-
-			// fmt.printfln("'%d'", x - width_offset)
-			switch self._canvas[x - width_offset][y - height_offset]{
-				case .On:
-					fmt.printf("\x1b[97m█\x1b[0m")
-				case .Dim:
-					fmt.printf("\x1b[90m█\x1b[0m")
-				case .Off:
-					fmt.printf("\x1b[30m█\x1b[0m")
-			}
-		}
-		fmt.println()
-	}
-
-	return nil
-}
-
 @(private)
-clear :: proc(self: ^Display){
+clear :: proc(using self: ^Display){
 	for x in 0..<DISPLAY_WIDTH{
 		for y in 0..<DISPLAY_HEIGHT{
-			if self._canvas[x][y] == .On{
-				self._canvas[x][y] = .Dim
-			} else if self._canvas[x][y] == .Dim{
-				self._canvas[x][y] = .Off
-			}
+			_canvas[x][y] = false
 		}
 	}
 }
 
 @(private)
-update :: proc(self: ^Display, x, y: int, turn_to: Pixel) -> (err: DisplayError){
-	
+update :: proc(using self: ^Display, x, y: u8, turn_to: Pixel) -> (err: DisplayError){
 	if x < 0 || x >= DISPLAY_WIDTH || y < 0 || y >= DISPLAY_HEIGHT{
 		return errors.NewDisplayTerminalPositionError(x, y, "update")
 	}
 
-	if turn_to == .Off{
-		if self._canvas[x][y] == .On{
-			self._canvas[x][y] = .Dim
-		} else if self._canvas[x][y] == .Dim{
-			self._canvas[x][y] = .Off
-		}
-	}else {
-		self._canvas[x][y] = turn_to		
-	}
+	_canvas[x][y] = turn_to
 
 	return nil
+}
+
+@(private)
+flip_pixel :: proc(using self: ^Display,  x, y: u8, pixel_active: Pixel) -> (collision: bool){
+	assert(x < DISPLAY_WIDTH, "The x coordinate exceeds the screen size limit")
+	assert(y  < DISPLAY_HEIGHT, "The y coordinate exceeds the screen size limit")
+	
+	if pixel_active && _canvas[x][y]{
+		collision = false
+	}
+
+	if pixel_active {
+		_canvas[x][y] ~= true
+	}
+
+	draw(self, x, y)
+
+	return collision
 }
 
 // ---------------- Helpers ----------------
 //#region GET_TERMINAL_SIZE
 @(private)
-get_terminal_size :: proc() -> (width, height: int, err: DisplayError) {
+get_terminal_size :: proc() -> (width, height: u8, err: DisplayError) {
 
 	ok := true
 	when ODIN_OS == .Windows {
@@ -268,7 +239,7 @@ when ODIN_OS == .Linux || ODIN_OS == .Darwin {
 	TIOCGWINSZ :: 0x5413
 
 	@(private)
-	get_terminal_size_posix :: proc() -> (width, height: int, ok: bool) {
+	get_terminal_size_posix :: proc() -> (width, height: u8, ok: bool) {
 		ws: winsize
 		
         res := ioctl(cast(c.int)os.stdout, TIOCGWINSZ, &ws)
@@ -276,14 +247,14 @@ when ODIN_OS == .Linux || ODIN_OS == .Darwin {
 			return 0, 0, false
 		}
 		
-		return int(ws.ws_col), int(ws.ws_row), true
+		return u8(ws.ws_col), u8(ws.ws_row), true
 	}
 }
 //#endregion
 
 //#region GET_TERMINAL_SIZE
 @(private)
-horizontaldisplay_border :: proc(width_offset: int, leftChar, rightChar: string){
+horizontal_display_border :: proc(width_offset: u8, leftChar, rightChar: string){
 	fmt.printf("%*s\033[32m%s\033[0m", width_offset, " ", leftChar)
 	for _ in  0..<DISPLAY_WIDTH do fmt.printf("\033[32m─\033[0m")
 	fmt.printfln("\033[32m%s\033[0m",rightChar)

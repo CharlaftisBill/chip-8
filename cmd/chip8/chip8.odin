@@ -3,6 +3,10 @@ package chip8
 import "../inputs"
 import "../display"
 
+import "core:os"
+import "core:time"
+
+
 FONTS :: [5 * 16]u8 {
     0xF0, 0x90, 0x90, 0x90, 0xF0, // 0
     0x20, 0x60, 0x20, 0x20, 0x70, // 1
@@ -24,30 +28,50 @@ FONTS :: [5 * 16]u8 {
 
 Chip8 :: struct{
     _memory         : [4096]byte,
-    _PC             : uint,
+    _PC             : u16,
     _I              : u16,
     _callStack      : [dynamic]u16,
     _delayTimer     : u8,
     _soundTimer     : u8,
     _registers      : [16]byte,
+
     using _display  : ^display.Display,
     using _keyboard : ^inputs.Keyboard,
 
+    _is_running             :   bool,
+    _is_paused              :   bool,
+    _instr_exec_last_sec    :   u8,
+    _last_time_reset        :   time.Time,
+
     // Methods
     deinit      : proc(self: ^Chip8),
+    run         : proc(self: ^Chip8),
+    stop        : proc(self: ^Chip8),
+    pause       : proc(self: ^Chip8),
+    play        : proc(self: ^Chip8),
+    load        : proc(self: ^Chip8, path : string) -> (err :os.Error),
     stack_push  : proc(self: ^Chip8, element_to_push: u16),
     stack_pop   : proc(self: ^Chip8) -> u16,
 }
 
 init :: proc() -> ^Chip8{
     chip8 := new(Chip8)
+
     chip8._callStack    = make([dynamic]u16)
     chip8._memory       = [4096]byte{}
     chip8._registers    = [16]byte{}
-    chip8._display      = display.init()
+    chip8._PC           = 512
+
     chip8._keyboard     = inputs.init()
+    chip8._display      = display.init()
 
     // Methods
+    chip8.run     = interpreter_run
+    chip8.play    = interpreter_play
+    chip8.stop    = interpreter_stop
+    chip8.load    = interpreter_load
+    chip8.pause   = interpreter_pause
+
     chip8.deinit        = deinit
     chip8.stack_push    = stack_push
     chip8.stack_pop     = stack_pop
@@ -65,14 +89,4 @@ deinit :: proc(using self: ^Chip8){
     inputs_deinit(_keyboard)
     display_deinit(_display)
     free(self)
-}
-
-@(private)
-stack_push :: proc(self: ^Chip8, element_to_push: u16){
-    append(&self._callStack, element_to_push)
-}
-
-@(private)
-stack_pop :: proc(self: ^Chip8) -> u16{
-    return pop(&self._callStack)
 }

@@ -30,13 +30,13 @@ NewDisplayTerminalSizeError :: proc(operation: string) -> DisplayTerminalSizeErr
 }
 
 DisplayTerminalPositionError :: struct{
-    x           : int,
-    y           : int,
+    x           : u8,
+    y           : u8,
     operation   : string,
     message     : string,
 }
 
-NewDisplayTerminalPositionError :: proc(x, y: int, operation: string) -> DisplayTerminalPositionError{
+NewDisplayTerminalPositionError :: proc(x, y: u8, operation: string) -> DisplayTerminalPositionError{
     return DisplayTerminalPositionError{
         x           = x,
         y           = y,
