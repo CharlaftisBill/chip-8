@@ -31,8 +31,8 @@ Chip8 :: struct{
     _PC             : u16,
     _I              : u16,
     _callStack      : [dynamic]u16,
-    _delayTimer     : u8,
-    _soundTimer     : u8,
+    _delay_timer     : u8,
+    _sound_timer     : u8,
     _registers      : [16]byte,
 
     using _display  : ^display.Display,

@@ -32,7 +32,7 @@ interpreter_load :: proc(using self: ^Chip8, path : string) -> (err :os.Error){
 }
 
 interpreter_run :: proc(using self: ^Chip8){
-    max_tic_time :: 1250 * time.Millisecond
+    max_tic_time :: 1250 * time.Microsecond
 
     for _is_running{
         for _is_paused {}

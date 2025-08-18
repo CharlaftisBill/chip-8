@@ -18,8 +18,8 @@ Keyboard ::struct{
 
     // Methods
     inputs_deinit   : proc(^Keyboard),
-    wait_keypress   : proc(^Keyboard)-> (mappedKey: rune, err: KeyboardError),
-    is_key_pressed  : proc(^Keyboard, rune)-> (bool, KeyboardError)
+    wait_keypress   : proc(^Keyboard)-> (mappedKey: u8, err: KeyboardError),
+    is_key_pressed  : proc(^Keyboard, u8)-> (bool, KeyboardError)
 }
 
 init :: proc() -> ^Keyboard{
@@ -50,17 +50,17 @@ QWERTY :: []rune{
     'Z', 'X', 'C', 'V',
 }
 
-COSMAC :: []rune{
-    '1', '2', '3', 'C',
-    '4', '5', '6', 'D',
-    '4', '5', '6', 'D',
-    '7', '8', '9', 'E',
-    '7', '8', '9', 'E',
-    'A', '0', 'B', 'F',
-    'A', '0', 'B', 'F',
+COSMAC :: []u8{
+    1, 2, 3, 0xC,
+    4, 5, 6, 0xD,
+    4, 5, 6, 0xD,
+    7, 8, 9, 0xE,
+    7, 8, 9, 0xE,
+    0xA, 0, 0xB, 0xF,
+    0xA, 0, 0xB, 0xF,
 }
 
-wait_keypress :: proc(self :^Keyboard)-> (mappedKey: rune, err: KeyboardError){
+wait_keypress :: proc(self :^Keyboard)-> (mappedKey: u8, err: KeyboardError){
     
     enable_raw_mode()
     
@@ -79,9 +79,9 @@ wait_keypress :: proc(self :^Keyboard)-> (mappedKey: rune, err: KeyboardError){
     return self->wait_keypress()
 }
 
-is_key_pressed :: proc(self :^Keyboard, key : rune)-> (bool, KeyboardError){
+is_key_pressed :: proc(self :^Keyboard, keyNo : u8)-> (bool, KeyboardError){
     mappedKey, err := self->wait_keypress()
-    return mappedKey == key, err
+    return mappedKey == keyNo, err
 }
 
 @(private)
