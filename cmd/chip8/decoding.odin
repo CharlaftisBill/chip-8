@@ -162,22 +162,25 @@ eight_decoder :: proc(using self : ^decoded_instruction, using inter : ^Chip8){
         case 3:
             _registers[X] ~= _registers[Y]
         case 4:
+            flag := u16(_registers[X]) + u16(_registers[Y]) >= 255
             _registers[X] += _registers[Y]
-            _registers[0xF] = 1 if u16(_registers[X]) + u16(_registers[Y]) > 255 else 0
+            _registers[0xF] = 1 if flag else 0
         case 5:
-            _registers[0xF] = 1 if _registers[X] > _registers[Y] else 0
+            flag := _registers[X] >= _registers[Y]
             _registers[X] -= _registers[Y]
+            _registers[0xF] = 1 if flag else 0
         case 6:
-            sob := _registers[X] << 3
-            _registers[0xF] = 1 if sob == 1 else 0
+            flag := _registers[X] & 0x1
             _registers[X] >>= 1
+            _registers[0xF] = 1 if flag == 1 else 0
         case 7:
-            _registers[0xF] = 1 if _registers[Y] > _registers[X] else 0
+            flag := _registers[Y] >= _registers[X]
             _registers[X] = _registers[Y] - _registers[X]
+            _registers[0xF] = 1 if flag else 0
         case 0xE:
-            sob := _registers[X] & 0b1000
-            _registers[0xF] = 1 if sob == 1 else 0
+            flag := (_registers[X] >> 7) & 0x1
             _registers[X] <<= 1
+            _registers[0xF] = 1 if flag == 1 else 0
         case:
             log.fatalf("Instruction `8%X` is not valid or not yet implemented!", NNN)
 
@@ -206,7 +209,7 @@ beta_decoder :: proc(using self : ^decoded_instruction, using inter : ^Chip8){
 
 // CXNN: Random NN
 gamma_decoder :: proc(using self : ^decoded_instruction, using inter : ^Chip8){
-    assert(selector == 0xA, "`beta_decoder` can be used only if instruction is of type `Bxxx`")
+    assert(selector == 0xC, "`gamma_decoder` can be used only if instruction is of type `Cxxx`")
     _registers[0] = u8(rand.int_max(255)) & NN
 }
 
@@ -214,24 +217,23 @@ gamma_decoder :: proc(using self : ^decoded_instruction, using inter : ^Chip8){
 delta_decoder :: proc(using self : ^decoded_instruction, using inter : ^Chip8){
     assert(selector == 0xD, "`delta_decoder` can be used only if instruction is of type `Dxxx`")
 
-    x := _registers[X]
-	y := _registers[Y]
+    col := _registers[X]
+	row := _registers[Y]
     _registers[0xf] = 0
 
-    for sprite_row in 0..<u8(N) {
-        sprite := _memory[_I + u16(sprite_row)]
+    for byte_index in 0..<u8(N) {
+        sprite := _memory[_I + u16(byte_index)]
 
-        for cur_bit in 0..<u8(8){
-            pixel := (sprite & (0b10000000 >> cur_bit)) != 0
+        for bit_index in 0..<u8(8){
+            pixel := ((sprite >> bit_index) & 0x1) == 1
 
-            position_x := cur_bit + x
-            position_y := sprite_row + y
-
-            if inter->display_flip_pixel(position_x, position_y, pixel) {
+            if inter->display_update((col + (7 - bit_index)), (row + byte_index), pixel) {
                 _registers[0xF] = 1
             }
         }
     }
+    
+    inter->display_draw()
 }
 
 // EX9E: skip next instruction if Vx is pressed
@@ -283,7 +285,7 @@ zeta_decoder :: proc(using self : ^decoded_instruction, using inter : ^Chip8){
         case 0x33:
             _memory[_I] = _registers[X] / 100
             _memory[_I + 1] = (_registers[X] / 10) % 10
-            _memory[_I + 2] = _registers[X] % 100
+            _memory[_I + 2] = _registers[X] % 10
         case 0x55:
             for i in 0..=X{
                 _memory[_I + u16(i)] = _registers[i]

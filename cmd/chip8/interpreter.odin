@@ -11,7 +11,7 @@ import "core:encoding/hex"
 
 Instruction :: u16
 
-interpreter_load :: proc(using self: ^Chip8, path : string) -> (err :os.Error){
+interpreter_load :: proc(using inter: ^Chip8, path : string) -> (err :os.Error){
     rom_data, ok := os.read_entire_file(path)
     if !ok {
         return .Unknown
@@ -31,16 +31,17 @@ interpreter_load :: proc(using self: ^Chip8, path : string) -> (err :os.Error){
     return nil
 }
 
-interpreter_run :: proc(using self: ^Chip8){
+interpreter_run :: proc(using inter: ^Chip8){
     max_tic_time :: 1250 * time.Microsecond
 
     for _is_running{
         for _is_paused {}
         
         start := time.now()
-        execute(self, decode(fetch(self)))
-        elapsed := time.since(start)
         
+        execute(inter, decode(fetch(inter)))
+
+        elapsed := time.since(start)
         remaining := max_tic_time - elapsed
         if remaining > 0 {
             time.sleep(remaining)
@@ -48,24 +49,24 @@ interpreter_run :: proc(using self: ^Chip8){
     }
 }
 
-interpreter_play :: proc(using self: ^Chip8){
+interpreter_play :: proc(using inter: ^Chip8){
     _is_running = true
 }
 
-interpreter_pause :: proc(using self: ^Chip8){
+interpreter_pause :: proc(using inter: ^Chip8){
     _is_paused = true
 }
 
-interpreter_unpause :: proc(using self: ^Chip8){
+interpreter_unpause :: proc(using inter: ^Chip8){
     _is_paused = false
 }
 
-interpreter_stop :: proc(using self: ^Chip8){
+interpreter_stop :: proc(using inter: ^Chip8){
     _is_running = false
 }
 
 @(private)
-fetch :: proc(using self: ^Chip8) -> (instruction : Instruction){
+fetch :: proc(using inter: ^Chip8) -> (instruction : Instruction){
     
     first_half := _memory[_PC]
     second_half := _memory[_PC + 1]
@@ -79,9 +80,9 @@ fetch :: proc(using self: ^Chip8) -> (instruction : Instruction){
 }
 
 @(private)
-execute :: proc(self: ^Chip8, using decoded : ^decoded_instruction){
+execute :: proc(inter: ^Chip8, using decoded : ^decoded_instruction){
     defer free(decoded)
-    decoded->execute(self)
+    decoded->execute(inter)
 }
 
 // ------------ Helpers ------------
@@ -98,11 +99,11 @@ combine_2_u8_to_u16 :: proc(first_half: u8, second_half: u8) -> u16{
 }
 
 @(private)
-stack_push :: proc(self: ^Chip8, element_to_push: u16){
-    append(&self._callStack, element_to_push)
+stack_push :: proc(inter: ^Chip8, element_to_push: u16){
+    append(&inter._callStack, element_to_push)
 }
 
 @(private)
-stack_pop :: proc(self: ^Chip8) -> u16{
-    return pop(&self._callStack)
+stack_pop :: proc(inter: ^Chip8) -> u16{
+    return pop(&inter._callStack)
 }

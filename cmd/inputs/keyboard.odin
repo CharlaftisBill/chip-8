@@ -1,9 +1,11 @@
 package inputs
 
-import "core:os"
 import "core:io"
+import "core:os"
 import "core:fmt"
 import "../errors"
+import "core:thread"
+import "core:sys/unix"
 import "core:sys/posix"
 import "core:unicode/utf8"
 
@@ -14,7 +16,8 @@ KeyboardError :: union {
 }
 
 Keyboard ::struct{
-    _original_termios: posix.termios,
+    _last_key_press     : u8,
+    _original_termios   : posix.termios,
 
     // Methods
     inputs_deinit   : proc(^Keyboard),
@@ -29,59 +32,76 @@ init :: proc() -> ^Keyboard{
     
     keyboard.inputs_deinit = deinit
 
-    // we ignore the ctrl+c 
-    // posix.sigignore(.SIGINT)
+    thread := thread.create_and_start_with_poly_data(keyboard, watch_last_key_pressed)
 
+    enable_raw_mode()
     return keyboard
 }
 
 deinit :: proc(using self: ^Keyboard){
+    disable_raw_mode()
     free(self)
 }
 
-
-QWERTY :: []rune{
-    '1', '2', '3', '4',
-    'q', 'w', 'e', 'r',
-    'Q', 'W', 'E', 'R',
-    'a', 's', 'd', 'f',
-    'A', 'S', 'D', 'F',
-    'z', 'x', 'c', 'v',
-    'Z', 'X', 'C', 'V',
-}
-
-COSMAC :: []u8{
-    1, 2, 3, 0xC,
-    4, 5, 6, 0xD,
-    4, 5, 6, 0xD,
-    7, 8, 9, 0xE,
-    7, 8, 9, 0xE,
-    0xA, 0, 0xB, 0xF,
-    0xA, 0, 0xB, 0xF,
-}
-
-wait_keypress :: proc(self :^Keyboard)-> (mappedKey: u8, err: KeyboardError){
+@(private)
+keyboard_map :: proc(qwerty_key : rune) -> (cosmac_key : u8){
     
-    enable_raw_mode()
+    cosmac_key = 0xff
     
-    buf: [1]u8
-    in_stream := os.stream_from_handle(os.stdin)
-    ch, size := io.read_rune(in_stream) or_return
-    
-    cosmac := COSMAC
-    for qch, i in QWERTY{
-        if qch == ch{
-            return cosmac[i], nil
-        }
+    switch qwerty_key{
+        case '1': cosmac_key = 0x1
+        case '2': cosmac_key = 0x2
+        case '3': cosmac_key = 0x3
+        case '4': cosmac_key = 0xC
+
+        case 'q': cosmac_key = 0x4
+        case 'w': cosmac_key = 0x5
+        case 'e': cosmac_key = 0x6
+        case 'r': cosmac_key = 0xD
+
+        case 'a': cosmac_key = 0x7
+        case 's': cosmac_key = 0x8
+        case 'd': cosmac_key = 0x9
+        case 'f': cosmac_key = 0xE
+        
+        case 'z': cosmac_key = 0xA
+        case 'x': cosmac_key = 0x0
+        case 'c': cosmac_key = 0xB
+        case 'v': cosmac_key = 0xF
     }
-    
-    disable_raw_mode()
-    return self->wait_keypress()
+
+    return cosmac_key
 }
 
-is_key_pressed :: proc(self :^Keyboard, keyNo : u8)-> (bool, KeyboardError){
-    mappedKey, err := self->wait_keypress()
-    return mappedKey == keyNo, err
+wait_keypress :: proc(self :^Keyboard)-> (u8, KeyboardError){
+    
+    // in_stream := os.stream_from_handle(os.stdin)
+    // qwerty_key, size := io.read_rune(in_stream) or_return
+    
+    // mappedKey = keyboard_map(qwerty_key)
+
+    // fmt.printf("\033[1;1H`wait_keypress `%r->%4X", qwerty_key, mappedKey)
+
+    self._last_key_press = 254
+    for self._last_key_press == 254{}
+    fmt.printf("\033[1;1H`wait_keypressw`'%r'",  self._last_key_press)
+
+    return self._last_key_press, nil
+}
+
+is_key_pressed :: proc(self :^Keyboard, keyNo : u8)-> (found : bool, err : KeyboardError){
+    return self._last_key_press == keyNo, err
+}
+
+
+@(private)
+watch_last_key_pressed :: proc(self :^Keyboard){
+    for true {
+        in_stream := os.stream_from_handle(os.stdin)
+        qwerty_key, size, err := io.read_rune(in_stream)
+        assert(err == nil, "A keyboard failure happened!")        
+        self._last_key_press = keyboard_map(qwerty_key)
+    }
 }
 
 @(private)

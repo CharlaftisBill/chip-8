@@ -2,6 +2,7 @@
 package inputs
 
 import psx "core:sys/posix"
+import "core:mem"
 
 @(private="file")
 orig_mode: psx.termios
@@ -11,14 +12,14 @@ _enable_raw_mode :: proc() {
 	res := psx.tcgetattr(psx.STDIN_FILENO, &orig_mode)
 	assert(res == .OK)
 
-	// Reset to the original attributes at the end of the program.
+	raw : psx.termios
+	mem.copy(&raw, &orig_mode, size_of(raw))
+	
 	psx.atexit(disable_raw_mode)
 
-	// Copy, and remove the
 	// ECHO (so what is typed is not shown) and
-	// ICANON (so we get each input instead of an entire line at once) flags.
-	raw := orig_mode
-	raw.c_lflag -= {.ECHO, .ICANON}
+	// ICANON (so we get each input instead of an entire line at once) flags.	
+	raw.c_lflag = raw.c_lflag - {.ECHO, .ICANON}
 	res = psx.tcsetattr(psx.STDIN_FILENO, .TCSANOW, &raw)
 	assert(res == .OK)
 }

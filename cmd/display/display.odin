@@ -24,14 +24,13 @@ DisplayError :: union {
 Pixel :: bool
 
 Display ::struct{
-	_canvas			: ^[DISPLAY_WIDTH][DISPLAY_HEIGHT]Pixel,
+	_canvas				: ^[DISPLAY_WIDTH][DISPLAY_HEIGHT]Pixel,
 
 	// Methods
 	display_deinit		: proc(self :^Display),
 	display_clear		: proc(self :^Display),
-	display_draw		: proc(display :^Display) -> DisplayError,
-	display_update		: proc(self :^Display, x, y: u8, turn_to: Pixel) -> (err: DisplayError),
-	display_flip_pixel	: proc(using self: ^Display,  x, y: u8, pixel_active: Pixel) -> (collision: bool)
+	display_draw		: proc(self: ^Display) -> (err: DisplayError),
+	display_update		: proc(using self: ^Display,  x, y: u8, pixel: Pixel) -> (collision: bool)
 }
 
 init :: proc() -> ^Display{
@@ -41,14 +40,13 @@ init :: proc() -> ^Display{
 	self := new(Display)
 
 	// fields
-	self._canvas 		= new([DISPLAY_WIDTH][DISPLAY_HEIGHT]Pixel)
-	
+	self._canvas	 		= new([DISPLAY_WIDTH][DISPLAY_HEIGHT]Pixel)
+
 	// methods
 	self.display_deinit		= deinit
 	self.display_clear   	= clear
-	self.display_draw    	= draw2
+	self.display_draw    	= draw
 	self.display_update  	= update
-	self.display_flip_pixel	= flip_pixel
 
 	// Hide cursor
     fmt.println("\033[?25l");
@@ -104,39 +102,24 @@ initial_frame_print :: proc() -> (err: DisplayError){
 }
 
 @(private)
-draw :: proc(self: ^Display, x, y: u8) -> (err: DisplayError){
+draw :: proc(using self: ^Display) -> (err: DisplayError){
 
 	current_width, current_height := get_terminal_size() or_return
 	width_offset	:= (current_width  - DISPLAY_WIDTH)  / 2
 	height_offset	:= (current_height - DISPLAY_HEIGHT) / 2
 
 	// fmt.printfln("Draw in %d,%d '%v'", x, y, self._canvas[x][y]? "█": " ")
-
-	if self._canvas[x][y]{
-		fmt.print("\033[1;1H'█'")
-		fmt.printfln("\033[%d;%dH\x1b[97m█\x1b[0m", y + height_offset + 1, x + width_offset + 1)
-	} else{
-		fmt.print("\033[1;1H' '")
-		fmt.printfln("\033[%d;%dH ", y + height_offset + 1, x + width_offset + 1)
-	}
-
-	return nil
-}
-
-@(private)
-draw2 :: proc(self: ^Display) -> (err: DisplayError){
-
-	current_width, current_height := get_terminal_size() or_return
-	width_offset	:= (current_width  - DISPLAY_WIDTH)  / 2
-	height_offset	:= (current_height - DISPLAY_HEIGHT) / 2
-
-	for y in 0..<DISPLAY_HEIGHT{
-		for x in 0..<DISPLAY_WIDTH{
+	
+	for y in 0..<DISPLAY_HEIGHT {
+		for x in 0..<DISPLAY_WIDTH {
 			if self._canvas[x][y]{
 				fmt.printfln("\033[%d;%dH\x1b[97m█\x1b[0m", y + height_offset + 1, x + width_offset + 1)
+			} else{
+				fmt.printfln("\033[%d;%dH ", y + height_offset + 1, x + width_offset + 1)
 			}
 		}
 	}
+	
 	return nil
 }
 
@@ -147,33 +130,18 @@ clear :: proc(using self: ^Display){
 			_canvas[x][y] = false
 		}
 	}
+	draw(self)
 }
 
 @(private)
-update :: proc(using self: ^Display, x, y: u8, turn_to: Pixel) -> (err: DisplayError){
-	if x < 0 || x >= DISPLAY_WIDTH || y < 0 || y >= DISPLAY_HEIGHT{
-		return errors.NewDisplayTerminalPositionError(x, y, "update")
+update :: proc(using self: ^Display,  x, y: u8, pixel: Pixel) -> (collision: bool){
+	local_x := x % DISPLAY_WIDTH 
+	local_y :=  y % DISPLAY_HEIGHT
+
+	if pixel && _canvas[local_x][local_y]{
+		collision = true
 	}
-
-	_canvas[x][y] = turn_to
-
-	return nil
-}
-
-@(private)
-flip_pixel :: proc(using self: ^Display,  x, y: u8, pixel_active: Pixel) -> (collision: bool){
-	assert(x < DISPLAY_WIDTH, "The x coordinate exceeds the screen size limit")
-	assert(y  < DISPLAY_HEIGHT, "The y coordinate exceeds the screen size limit")
-	
-	if pixel_active && _canvas[x][y]{
-		collision = false
-	}
-
-	if pixel_active {
-		_canvas[x][y] ~= true
-	}
-
-	draw(self, x, y)
+	_canvas[local_x][local_y] ~= pixel
 
 	return collision
 }
