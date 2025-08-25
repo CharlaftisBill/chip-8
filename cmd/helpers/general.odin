@@ -1,5 +1,6 @@
 package helpers
 
+import "core:prof/spall"
 import "core:os"
 
 get_os_string :: proc() -> string {

@@ -1,5 +1,6 @@
 package chip8
 
+import "core:fmt"
 import "../inputs"
 import "../display"
 
@@ -36,19 +37,14 @@ Chip8 :: struct{
     _registers      : [16]byte,
 
     using _display  : ^display.Display,
-    using _keyboard : ^inputs.Keyboard,
+    using _input : ^inputs.Input,
 
-    _is_running             :   bool,
-    _is_paused              :   bool,
     _instr_exec_last_sec    :   u8,
     _last_time_reset        :   time.Time,
 
     // Methods
     deinit      : proc(self: ^Chip8),
     run         : proc(self: ^Chip8),
-    stop        : proc(self: ^Chip8),
-    pause       : proc(self: ^Chip8),
-    play        : proc(self: ^Chip8),
     load        : proc(self: ^Chip8, path : string) -> (err :os.Error),
     stack_push  : proc(self: ^Chip8, element_to_push: u16),
     stack_pop   : proc(self: ^Chip8) -> u16,
@@ -62,15 +58,12 @@ init :: proc() -> ^Chip8{
     chip8._registers    = [16]byte{}
     chip8._PC           = 512
 
-    chip8._keyboard     = inputs.init()
+    chip8._input     = inputs.init()
     chip8._display      = display.init()
 
     // Methods
     chip8.run     = interpreter_run
-    chip8.play    = interpreter_play
-    chip8.stop    = interpreter_stop
     chip8.load    = interpreter_load
-    chip8.pause   = interpreter_pause
 
     chip8.deinit        = deinit
     chip8.stack_push    = stack_push
@@ -85,8 +78,13 @@ init :: proc() -> ^Chip8{
 }
 
 deinit :: proc(using self: ^Chip8){
-    delete(_callStack)
-    inputs_deinit(_keyboard)
+    if self == nil {
+		return
+	}
+
     display_deinit(_display)
+    inputs_deinit(_input)
+
+    delete(_callStack)
     free(self)
 }

@@ -34,35 +34,28 @@ interpreter_load :: proc(using inter: ^Chip8, path : string) -> (err :os.Error){
 interpreter_run :: proc(using inter: ^Chip8){
     max_tic_time :: 1250 * time.Microsecond
 
-    for _is_running{
-        for _is_paused {}
+    for _is_game_running{
+        for _is_game_paused {}
+
+        if _delay_timer >= 0 do _delay_timer -= 1
+        if _sound_timer >= 0 {
+            fmt.print("\a");
+            _sound_timer -= 1
+        }    
         
         start := time.now()
         
-        execute(inter, decode(fetch(inter)))
+        instr := fetch(inter)
+        decoded := decode(instr)
+        execute(inter, decoded)
 
         elapsed := time.since(start)
         remaining := max_tic_time - elapsed
+
         if remaining > 0 {
             time.sleep(remaining)
         }
     }
-}
-
-interpreter_play :: proc(using inter: ^Chip8){
-    _is_running = true
-}
-
-interpreter_pause :: proc(using inter: ^Chip8){
-    _is_paused = true
-}
-
-interpreter_unpause :: proc(using inter: ^Chip8){
-    _is_paused = false
-}
-
-interpreter_stop :: proc(using inter: ^Chip8){
-    _is_running = false
 }
 
 @(private)

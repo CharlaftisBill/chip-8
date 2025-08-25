@@ -45,13 +45,13 @@ NewDisplayTerminalPositionError :: proc(x, y: u8, operation: string) -> DisplayT
     }
 }
 
-KeyboardNoKeyMapExistsError :: struct{
+InputNoKeyMapExistsError :: struct{
     operation   : string,
     message     : string,
 }
 
-NewKeyboardNoKeyMapExistsError :: proc(operation: string) -> KeyboardNoKeyMapExistsError{
-    return KeyboardNoKeyMapExistsError{
+NewInputNoKeyMapExistsError :: proc(operation: string) -> InputNoKeyMapExistsError{
+    return InputNoKeyMapExistsError{
         operation   = operation,
         message     = "There is no key mapped to",
     }

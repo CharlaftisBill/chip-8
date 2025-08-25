@@ -1,8 +1,9 @@
 package chip8
 
+import "../display"
+
 import "core:log"
 import "core:fmt"
-import "../display"
 import "core:math/rand"
 
 @(private)
@@ -242,7 +243,7 @@ epsilon_decoder :: proc(using self : ^decoded_instruction, using inter : ^Chip8)
     assert(selector == 0xE, "`epsilon_decoder` can be used only if instruction is of type `Exxx`")
 
     pressed, err := inter->is_key_pressed(_registers[X])
-    assert(err == nil, "Error occurred while trying to read keyboard")
+    assert(err == nil, "Error occurred while trying to read input")
 
     switch N {
         case 0xE:           
@@ -278,7 +279,7 @@ zeta_decoder :: proc(using self : ^decoded_instruction, using inter : ^Chip8){
             _registers[0xF] = 1 if u32(_I) + u32(_registers[Y]) > 0x0FFF else 0
         case 0x0A:
             pressed, err := inter->wait_keypress()
-            assert(err == nil, "Error occurred while waiting to read keyboard")
+            assert(err == nil, "Error occurred while waiting to read input")
             _registers[X] = pressed
         case 0x29:
             _I = u16(_memory[u16(_registers[X])])
