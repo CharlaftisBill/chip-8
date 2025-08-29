@@ -4,7 +4,6 @@ import "core:c"
 import "core:os"
 import "core:fmt"
 import "core:mem"
-import "../errors"
 import psx "core:sys/posix"
 
 DISPLAY_WIDTH 	:: u8(64)
@@ -15,12 +14,6 @@ START_ALTERNATE_SCREEN_BUFFER :: "\033[?1049h"
 @(private)
 END_ALTERNATE_SCREEN_BUFFER :: "\033[?1049l"
 
-DisplayError :: union {
-	errors.NotSupportedPlatformError,
-	errors.DisplayTerminalSizeError,
-	errors.DisplayTerminalPositionError
-}
-
 Pixel :: bool
 
 Display ::struct{
@@ -29,7 +22,7 @@ Display ::struct{
 	// Methods
 	display_deinit		: proc(self :^Display),
 	display_clear		: proc(self :^Display),
-	display_draw		: proc(self: ^Display) -> (err: DisplayError),
+	display_draw		: proc(self: ^Display),
 	display_update		: proc(using self: ^Display,  x, y: u8, pixel: Pixel) -> (collision: bool)
 }
 
@@ -74,15 +67,23 @@ deinit :: proc(self: ^Display){
 }
 
 @(private)
-initial_frame_print :: proc() -> (err: DisplayError){
+initial_frame_print :: proc(){
 	
-	current_width, current_height := get_terminal_size() or_return
+	current_width, current_height := get_terminal_size()
 	width_offset	:= ((current_width  - DISPLAY_WIDTH)  / 2) - 1
 	height_offset	:= ((current_height - DISPLAY_HEIGHT) / 2) - 1
 	
-	if current_width < DISPLAY_WIDTH || current_height < DISPLAY_HEIGHT {
-		return errors.NewDisplayTerminalSizeError("DRAW")
-	}
+	fmt.assertf(current_width >= DISPLAY_WIDTH,
+		"The Terminal width is '%d', not fitting chip-8's '%d'",
+		current_width,
+		DISPLAY_WIDTH,
+	)
+
+	fmt.assertf(current_height >= DISPLAY_HEIGHT,
+		"The Terminal height '%d'is '%d', not fitting chip-8's '%d'",
+		current_height,
+		DISPLAY_HEIGHT,
+	)
 
 	// Clears the terminal
 	fmt.print("\x1b[2J\x1b[H")
@@ -97,14 +98,12 @@ initial_frame_print :: proc() -> (err: DisplayError){
 	}
 	fmt.println()
 	horizontal_display_border(width_offset, "╰", "╯")
-
-	return nil
 }
 
 @(private)
-draw :: proc(using self: ^Display) -> (err: DisplayError){
+draw :: proc(using self: ^Display) {
 
-	current_width, current_height := get_terminal_size() or_return
+	current_width, current_height := get_terminal_size()
 	width_offset	:= (current_width  - DISPLAY_WIDTH)  / 2
 	height_offset	:= (current_height - DISPLAY_HEIGHT) / 2
 
@@ -118,9 +117,7 @@ draw :: proc(using self: ^Display) -> (err: DisplayError){
 				fmt.printfln("\033[%d;%dH ", y + height_offset + 1, x + width_offset + 1)
 			}
 		}
-	}
-	
-	return nil
+	}	
 }
 
 @(private)
@@ -130,8 +127,9 @@ clear :: proc(using self: ^Display){
 			_canvas[x][y] = false
 		}
 	}
-	draw(self)
+	// draw(self)
 }
+
 
 @(private)
 update :: proc(using self: ^Display,  x, y: u8, pixel: Pixel) -> (collision: bool){
@@ -149,7 +147,7 @@ update :: proc(using self: ^Display,  x, y: u8, pixel: Pixel) -> (collision: boo
 // ---------------- Helpers ----------------
 //#region GET_TERMINAL_SIZE
 @(private)
-get_terminal_size :: proc() -> (width, height: u8, err: DisplayError) {
+get_terminal_size :: proc() -> (width, height: u8) {
 
 	ok := true
 	when ODIN_OS == .Windows {
@@ -159,8 +157,10 @@ get_terminal_size :: proc() -> (width, height: u8, err: DisplayError) {
 	} else {
 		ok = false	
 	}
+	
+	assert(ok, "Failed to get the terminal size")
 
-	return  width, height, errors.NewNotSupportedPlatformError("GET_TERMINAL_SIZE") if !ok else nil
+	return  width, height
 }
 
 when ODIN_OS == .Windows {

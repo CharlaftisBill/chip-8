@@ -7,41 +7,41 @@ import "core:os"
 import "core:fmt"
 import "core:log"
 import "core:time"
+import "core:thread"
 import "core:encoding/hex"
 
 Instruction :: u16
 
-interpreter_load :: proc(using inter: ^Chip8, path : string) -> (err :os.Error){
+interpreter_load :: proc(using inter: ^Chip8, path : string) {
     rom_data, ok := os.read_entire_file(path)
-    if !ok {
-        return .Unknown
-    }
+    fmt.assertf(ok,
+		"Could not read ROM file '%s'",
+		path,
+	)
 
     // fmt.println(path, len(rom_data))
-
-    if 512 + len(rom_data) > len(_memory) {
-        log.fatal("Rom size exceeds the memory constrains as described in the original CHIP-8 hardware spec")
-    }
+    assert(512 + len(rom_data) <= len(_memory), "Rom size exceeds the memory constrains as described in the original CHIP-8 hardware spec")
 
     for i in 0..<len(rom_data){
         // Original CHIP-8 loaded at 0x000–0x1FF (dec: 0-511); programs start at 0x200 (dec: 512)
         _memory[512 + i] = rom_data[i] 
     }
-
-    return nil
 }
 
+// 1250  -> 800 inst/sec
+// 2500  -> 400 inst/sec
+// 5000  -> 200 inst/sec
+// 10000 -> 100 inst/sec
 interpreter_run :: proc(using inter: ^Chip8){
-    max_tic_time :: 1250 * time.Microsecond
+    max_tic_time :: 2500 * time.Microsecond
+
+    _timers_thread = thread.create_and_start_with_poly_data(
+        inter,
+        tic_timers,
+    )
 
     for _is_game_running{
         for _is_game_paused {}
-
-        if _delay_timer >= 0 do _delay_timer -= 1
-        if _sound_timer >= 0 {
-            fmt.print("\a");
-            _sound_timer -= 1
-        }    
         
         start := time.now()
         
@@ -55,6 +55,25 @@ interpreter_run :: proc(using inter: ^Chip8){
         if remaining > 0 {
             time.sleep(remaining)
         }
+    }
+}
+
+@(private)
+tic_timers :: proc(using inter: ^Chip8) {
+    for _is_game_running{
+        for _is_game_paused {}
+
+        if _delay_timer > 0 do _delay_timer -= 1
+        if _sound_timer > 0 {
+            fmt.print("\a")
+            fmt.printf("\033[1;%dH🔔", display.DISPLAY_WIDTH)
+            _sound_timer -= 1
+        } else {
+            fmt.printf("\033[1;%dH ", display.DISPLAY_WIDTH)
+        }
+
+        inter->display_draw()
+        time.sleep((1000 / 60) * time.Millisecond)
     }
 }
 

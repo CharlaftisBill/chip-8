@@ -11,8 +11,8 @@ orig_mode: posix.termios
 
 _enable_raw_mode :: proc() {
 
-	res := posix.tcgetattr(posix.STDIN_FILENO, &orig_mode)
-	assert(res == .OK)
+	// res := posix.tcgetattr(posix.STDIN_FILENO, &orig_mode)
+	// assert(res == .OK, "Failed to get the current terminal state")
 
 	ok := posix.tcgetattr(posix.STDIN_FILENO, &orig_mode) == .OK
 	assert(ok, "Failed to get the current terminal state")
@@ -25,13 +25,13 @@ _enable_raw_mode :: proc() {
 	// ICANON (so we get each input instead of an entire line at once) flags.	
 	raw.c_lflag -= {.ECHO, .ICANON, .ISIG, .IEXTEN}
 
-	res = posix.tcsetattr(posix.STDIN_FILENO, .TCSAFLUSH, &raw)
-	assert(res == .OK, "failed to set new terminal state")
+	ok = posix.tcsetattr(posix.STDIN_FILENO, .TCSAFLUSH, &raw)  == .OK
+	assert(ok, "Failed to set new terminal state")
 }
 
 _disable_raw_mode :: proc () {
-	res := posix.tcsetattr(posix.STDIN_FILENO, .TCSAFLUSH, &orig_mode)
-	assert(res == .OK, "failed to set new terminal state")
+	ok := posix.tcsetattr(posix.STDIN_FILENO, .TCSAFLUSH, &orig_mode) == .OK
+	assert(ok, "failed to set new terminal state")
 }
 
 _set_utf8_terminal :: proc() {}

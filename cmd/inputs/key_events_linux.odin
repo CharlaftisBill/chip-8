@@ -4,6 +4,8 @@ package inputs
 import "core:c"
 import "core:os"
 import "core:fmt"
+import "core:time"
+import "core:c/libc"
 import "core:os/os2"
 import "core:strings"
 import "core:sys/linux"
@@ -247,16 +249,16 @@ _detect_keyboard :: proc() -> (fd: os.Handle = -1) {
     name    : [256]u8    
 
     file_infos, err := os2.read_directory_by_path("/dev/input/", MAX_DEVICES, context.allocator)
-    assert(err == nil, "could not list devices")
+    assert(err == nil, "Could not list devices")
 
     for file_info in file_infos{
         temp_fd := os.open(file_info.fullpath, os.O_RDONLY) or_continue
 
         if linux.ioctl(linux.Fd(temp_fd), EVIOCGNAME(size_of(name)), uintptr(&name)) >= 0 {            
-            fmt.printf("%s: %s\n", file_info.fullpath, strings.clone_from_bytes(name[:]))
+            // fmt.printf("%s: %s\n", file_info.fullpath, strings.clone_from_bytes(name[:]))
 
             if strings.contains(strings.to_lower(strings.clone_from_bytes(name[:])), "keyboard"){
-                fmt.printf("-> Using %s as keyboard device\n", file_info.fullpath)
+                // fmt.printf("-> Using %s as keyboard device\n", file_info.fullpath)
                 fd = temp_fd
                 break
             }
@@ -269,7 +271,9 @@ _detect_keyboard :: proc() -> (fd: os.Handle = -1) {
 }
 
 _keyboard_watcher :: proc(self: ^Input, fd: os.Handle) {
-    for {
+    for self._is_game_running{
+        for self._is_game_paused{}
+
         buf : [size_of(input_event)]u8
 
         n, errno := os.read(fd, buf[:])
@@ -289,6 +293,14 @@ _keyboard_watcher :: proc(self: ^Input, fd: os.Handle) {
             }else if ev.value == 2 {
                 // fmt.printf("Key repeated:  %s\n", key_name)
             }
+
+            libc.fflush(libc.stdout)
+
+            // for i in 0..<len(self._keyboard){
+            //     fmt.printf("\033[%d;1H %2d) %s", i+3, i,  self._keyboard[i]? "T" : "F")
+            // }
         }
+        // time.sleep(1250* time.Millisecond)
     }
+    os.close(fd)
 }
