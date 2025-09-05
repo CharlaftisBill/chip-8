@@ -12,7 +12,7 @@ import "core:encoding/hex"
 
 Instruction :: u16
 
-interpreter_load :: proc(using inter: ^Chip8, path : string) {
+interpreter_load :: proc(inter: ^Chip8, path : string) {
     rom_data, ok := os.read_entire_file(path)
     fmt.assertf(ok,
 		"Could not read ROM file '%s'",
@@ -20,11 +20,11 @@ interpreter_load :: proc(using inter: ^Chip8, path : string) {
 	)
 
     // fmt.println(path, len(rom_data))
-    assert(512 + len(rom_data) <= len(_memory), "Rom size exceeds the memory constrains as described in the original CHIP-8 hardware spec")
+    assert(512 + len(rom_data) <= len(inter._memory), "Rom size exceeds the memory constrains as described in the original CHIP-8 hardware spec")
 
     for i in 0..<len(rom_data){
         // Original CHIP-8 loaded at 0x000–0x1FF (dec: 0-511); programs start at 0x200 (dec: 512)
-        _memory[512 + i] = rom_data[i] 
+        inter._memory[512 + i] = rom_data[i] 
     }
 }
 
@@ -32,16 +32,16 @@ interpreter_load :: proc(using inter: ^Chip8, path : string) {
 // 2500  -> 400 inst/sec
 // 5000  -> 200 inst/sec
 // 10000 -> 100 inst/sec
-interpreter_run :: proc(using inter: ^Chip8){
+interpreter_run :: proc(inter: ^Chip8){
     max_tic_time :: 2500 * time.Microsecond
 
-    _timers_thread = thread.create_and_start_with_poly_data(
+    inter._timers_thread = thread.create_and_start_with_poly_data(
         inter,
         tic_timers,
     )
 
-    for _is_game_running{
-        for _is_game_paused {}
+    for inter._is_game_running{
+        for inter._is_game_paused {}
         
         start := time.now()
         
@@ -59,15 +59,16 @@ interpreter_run :: proc(using inter: ^Chip8){
 }
 
 @(private)
-tic_timers :: proc(using inter: ^Chip8) {
-    for _is_game_running{
-        for _is_game_paused {}
+tic_timers :: proc(inter: ^Chip8) {
+    for inter._is_game_running{
+        for inter._is_game_paused {}
 
-        if _delay_timer > 0 do _delay_timer -= 1
-        if _sound_timer > 0 {
+        if inter._delay_timer > 0 do inter._delay_timer -= 1
+
+        if inter._sound_timer > 0 {
             fmt.print("\a")
             fmt.printf("\033[1;%dH🔔", display.DISPLAY_WIDTH)
-            _sound_timer -= 1
+            inter._sound_timer -= 1
         } else {
             fmt.printf("\033[1;%dH ", display.DISPLAY_WIDTH)
         }
@@ -78,21 +79,21 @@ tic_timers :: proc(using inter: ^Chip8) {
 }
 
 @(private)
-fetch :: proc(using inter: ^Chip8) -> (instruction : Instruction){
+fetch :: proc(inter: ^Chip8) -> (instruction : Instruction){
     
-    first_half := _memory[_PC]
-    second_half := _memory[_PC + 1]
+    first_half := inter._memory[inter._PC]
+    second_half := inter._memory[inter._PC + 1]
 
     instruction = combine_2_u8_to_u16(first_half, second_half)
     // fmt.printfln("%d) %02X %02X ->  %04X", _PC, first_half, second_half, instruction)
 
-    _PC += 2
+    inter._PC += 2
 
     return instruction
 }
 
 @(private)
-execute :: proc(inter: ^Chip8, using decoded : ^decoded_instruction){
+execute :: proc(inter: ^Chip8, decoded : ^decoded_instruction){
     defer free(decoded)
     decoded->execute(inter)
 }

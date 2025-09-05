@@ -25,23 +25,23 @@ QWERTY_KEYBOARD :: [16]string{
 }
 
 Input ::struct{
-    _is_game_running         :   bool,
-    _is_game_paused          :   bool,
+    _is_game_running         : bool,
+    _is_game_paused          : bool,
 
     _original_termios        : posix.termios,
 
-    _keyboard                       :  [16]bool,    // location with index 16 is for not valid key
-    _watch_last_key_pressed_thread  : ^thread.Thread,
+    _keyboard                : [16]bool,    // location with index 16 is for not valid key
+    _keyboard_watcher_thread : ^thread.Thread,
 
     // Methods
     inputs_deinit   : proc(^Input),
-    key_pressed     : proc(using self: ^Input, key : string),
-    key_released    : proc(using self: ^Input, key : string),
+    key_pressed     : proc(self: ^Input, key : string),
+    key_released    : proc(self: ^Input, key : string),
     wait_keypress   : proc(^Input)-> u8,
     is_key_pressed  : proc(^Input, u8)-> (bool)
 }
 
-init :: proc() -> ^Input{
+init :: proc() -> ^Input{ 
     input := new(Input)
 
     input._is_game_running  = true
@@ -54,11 +54,9 @@ init :: proc() -> ^Input{
 
     input.inputs_deinit     = deinit
 
-    // input._last_key_press       = 254
-    // input._last_key_released    = 254
     when ODIN_OS == .Linux{
         fd := _detect_keyboard()
-        input._watch_last_key_pressed_thread = thread.create_and_start_with_poly_data2(
+        input._keyboard_watcher_thread = thread.create_and_start_with_poly_data2(
             input,
             fd,
             _keyboard_watcher,
@@ -69,15 +67,33 @@ init :: proc() -> ^Input{
     return input
 }
 
-deinit :: proc(using self: ^Input){
+deinit :: proc (self: ^Input){
 
-    _is_game_paused  = false
-    _is_game_running = false
+    self._is_game_paused  = false
+    self._is_game_running = false
 
-    thread.destroy(_watch_last_key_pressed_thread)
+    thread.destroy(self._keyboard_watcher_thread)
     disable_raw_mode()
 
     free(self)
+}
+
+
+wait_keypress :: proc(self :^Input)-> u8{
+    fmt.printf("\033[1;1H`wait_keypress`")
+
+    temp_cosmac := COSMAC_KEYBOARD
+
+    for key, index in self._keyboard {
+        if key do return temp_cosmac[index]
+    }
+
+    return 0xff
+}
+
+is_key_pressed :: proc(self :^Input, cosmac_key_value : u8)-> (found : bool){
+    // fmt.printf("\033[%d;1H '%4s' ('%4d') is pressed: '%v'.", cosmac_key_value+2, map_cosmac_to_qwerty(cosmac_key_value), cosmac_key_value, wait_keypress(self) == cosmac_key_value)
+    return self._keyboard[map_cosmac_to_keyboard(cosmac_key_value)]
 }
 
 @(private)
@@ -127,42 +143,29 @@ map_cosmac_to_qwerty :: proc(cosmac_key : u8) -> string {
 }
 
 @(private)
-key_pressed :: proc(using self: ^Input, key : string){
+key_pressed :: proc(self: ^Input, key : string){
+    fmt.printf("\033[2;1H`key_pressed`")
+
     if key == "ESC"{
         menu(self)
     }
 
     key := map_qwerty_to_keyboard(key)
-    if key < 16 do _keyboard[key] = true
+    if key < 16 do self._keyboard[key] = true
 }
 
 @(private)
-key_released :: proc(using self: ^Input, key : string){
+key_released :: proc(self: ^Input, key : string){
+    fmt.printf("\033[3;1H`key_released`")
+
     key := map_qwerty_to_keyboard(key)
-    if key < 16 do _keyboard[key] = false
-}
-
-wait_keypress :: proc(self :^Input)-> u8{
-    // fmt.printf("\033[1;1H`wait_keypress`")
-
-    temp_cosmac := COSMAC_KEYBOARD
-
-    for key, index in self._keyboard {
-        if key do return temp_cosmac[index]
-    }
-
-    return 0xff
-}
-
-is_key_pressed :: proc(self :^Input, cosmac_key_value : u8)-> (found : bool){
-    // fmt.printf("\033[%d;1H '%4s' ('%4d') is pressed: '%v'.", cosmac_key_value+2, map_cosmac_to_qwerty(cosmac_key_value), cosmac_key_value, wait_keypress(self) == cosmac_key_value)
-    return self._keyboard[map_cosmac_to_keyboard(cosmac_key_value)]
+    if key < 16 do self._keyboard[key] = false
 }
 
 @(private)
-menu :: proc(using self :^Input){
+menu :: proc(self :^Input){
 
-    _is_game_paused = true
+    self._is_game_paused = true
     in_stream := os.stream_from_handle(os.stdin)
 
     // cleans the 'in_stream' 
@@ -178,10 +181,10 @@ menu :: proc(using self :^Input){
         valid_option = true
         switch key{
             case 'q', 'Q':
-                _is_game_running = false
-                _is_game_paused  = false
+                self._is_game_running = false
+                self._is_game_paused  = false
             case 'c', 'C':
-                _is_game_paused  = false
+                self._is_game_paused  = false
             case:
                 valid_option = false
         }

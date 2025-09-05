@@ -270,12 +270,14 @@ _detect_keyboard :: proc() -> (fd: os.Handle = -1) {
     return fd
 }
 
-_keyboard_watcher :: proc(self: ^Input, fd: os.Handle) {
-    for self._is_game_running{
-        for self._is_game_paused{}
+_keyboard_watcher :: proc(using self: ^Input, fd: os.Handle) {
+    for _is_game_running{
+        for _is_game_paused{}
 
+        // fmt.printf("`Init keyboard watcher` '%d', %s", ev.type, key_codes[ev.code])
+        
         buf : [size_of(input_event)]u8
-
+        
         n, errno := os.read(fd, buf[:])
         if errno == .EINTR do continue
         assert(n > 0, "Error while attempting to read the device")
@@ -296,11 +298,10 @@ _keyboard_watcher :: proc(self: ^Input, fd: os.Handle) {
 
             libc.fflush(libc.stdout)
 
-            // for i in 0..<len(self._keyboard){
-            //     fmt.printf("\033[%d;1H %2d) %s", i+3, i,  self._keyboard[i]? "T" : "F")
-            // }
+            for i in 0..<len(_keyboard){
+                fmt.printf("\033[%d;1H %2d) %s", i+3, i,  _keyboard[i]? "T" : "F")
+            }
         }
-        // time.sleep(1250* time.Millisecond)
     }
     os.close(fd)
 }

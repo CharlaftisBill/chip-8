@@ -9,7 +9,6 @@ import "core:time"
 import "core:thread"
 
 
-
 FONTS :: [80]u8 {
     0xF0, 0x90, 0x90, 0x90, 0xF0, // 0
 	0x20, 0x60, 0x20, 0x20, 0x70, // 1
@@ -57,21 +56,21 @@ Chip8 :: struct{
 init :: proc() -> ^Chip8{
     chip8 := new(Chip8)
 
-    chip8._callStack    = make([dynamic]u16)
-    chip8._memory       = [4096]byte{}
-    chip8._registers    = [16]byte{}
-    chip8._PC           = 512
+    chip8._callStack = make([dynamic]u16)
+    chip8._memory    = [4096]byte{}
+    chip8._registers = [16]byte{}
+    chip8._PC        = 512
 
     chip8._input     = inputs.init()
-    chip8._display      = display.init()
+    // chip8._display   = display.init()
 
     // Methods
-    chip8.run     = interpreter_run
-    chip8.load    = interpreter_load
+    chip8.run        = interpreter_run
+    chip8.load       = interpreter_load
 
-    chip8.deinit        = deinit
-    chip8.stack_push    = stack_push
-    chip8.stack_pop     = stack_pop
+    chip8.deinit     = deinit
+    chip8.stack_push = stack_push
+    chip8.stack_pop  = stack_pop
 
     // Load FONTS
     for font_sprite, i in FONTS{
@@ -81,16 +80,16 @@ init :: proc() -> ^Chip8{
     return chip8
 }
 
-deinit :: proc(using self: ^Chip8){
+deinit :: proc(self: ^Chip8){
     if self == nil {
 		return
 	}
 
-    thread.destroy(_timers_thread)
+    thread.destroy(self._timers_thread)
 
-    display_deinit(_display)
-    inputs_deinit(_input)
+    self.display_deinit(self._display)
+    self.inputs_deinit(self._input)
 
-    delete(_callStack)
+    delete(self._callStack)
     free(self)
 }

@@ -16,14 +16,14 @@ END_ALTERNATE_SCREEN_BUFFER :: "\033[?1049l"
 
 Pixel :: bool
 
-Display ::struct{
+Display :: struct{
 	_canvas				: ^[DISPLAY_WIDTH][DISPLAY_HEIGHT]Pixel,
 
 	// Methods
 	display_deinit		: proc(self :^Display),
 	display_clear		: proc(self :^Display),
 	display_draw		: proc(self: ^Display),
-	display_update		: proc(using self: ^Display,  x, y: u8, pixel: Pixel) -> (collision: bool)
+	display_update		: proc(self: ^Display,  x, y: u8, pixel: Pixel) -> (collision: bool)
 }
 
 init :: proc() -> ^Display{
@@ -101,7 +101,7 @@ initial_frame_print :: proc(){
 }
 
 @(private)
-draw :: proc(using self: ^Display) {
+draw :: proc(self: ^Display) {
 
 	current_width, current_height := get_terminal_size()
 	width_offset	:= (current_width  - DISPLAY_WIDTH)  / 2
@@ -121,10 +121,10 @@ draw :: proc(using self: ^Display) {
 }
 
 @(private)
-clear :: proc(using self: ^Display){
+clear :: proc(self: ^Display){
 	for x in 0..<DISPLAY_WIDTH{
 		for y in 0..<DISPLAY_HEIGHT{
-			_canvas[x][y] = false
+			self._canvas[x][y] = false
 		}
 	}
 	// draw(self)
@@ -132,14 +132,14 @@ clear :: proc(using self: ^Display){
 
 
 @(private)
-update :: proc(using self: ^Display,  x, y: u8, pixel: Pixel) -> (collision: bool){
+update :: proc(self: ^Display,  x, y: u8, pixel: Pixel) -> (collision: bool){
 	local_x := x % DISPLAY_WIDTH 
 	local_y :=  y % DISPLAY_HEIGHT
 
-	if pixel && _canvas[local_x][local_y]{
+	if pixel && self._canvas[local_x][local_y]{
 		collision = true
 	}
-	_canvas[local_x][local_y] ~= pixel
+	self._canvas[local_x][local_y] ~= pixel
 
 	return collision
 }
