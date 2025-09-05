@@ -8,6 +8,7 @@ import "core:fmt"
 import "core:log"
 import "core:time"
 import "core:thread"
+import rl "vendor:raylib"
 import "core:encoding/hex"
 
 Instruction :: u16
@@ -32,50 +33,53 @@ interpreter_load :: proc(inter: ^Chip8, path : string) {
 // 2500  -> 400 inst/sec
 // 5000  -> 200 inst/sec
 // 10000 -> 100 inst/sec
-interpreter_run :: proc(inter: ^Chip8){
-    max_tic_time :: 2500 * time.Microsecond
+interpreter_run :: proc(inter: ^Chip8, cycles: int = 800){
 
-    inter._timers_thread = thread.create_and_start_with_poly_data(
-        inter,
-        tic_timers,
-    )
+    max_tic_time := time.Duration(1000 / cycles) * time.Millisecond
 
-    for inter._is_game_running{
+    cycles_counter := 0
+    for !rl.WindowShouldClose() {
         for inter._is_game_paused {}
-        
+
         start := time.now()
         
         instr := fetch(inter)
         decoded := decode(instr)
         execute(inter, decoded)
-
+        
         elapsed := time.since(start)
-        remaining := max_tic_time - elapsed
 
+        if cycles_counter == 8 {
+            tic_timers(inter)
+            cycles_counter = 0
+            fmt.printfln("frames: %d", rl.GetFPS())
+        }
+
+        remaining := max_tic_time - elapsed
+        
         if remaining > 0 {
             time.sleep(remaining)
         }
+
+        cycles_counter += 1
     }
 }
 
 @(private)
 tic_timers :: proc(inter: ^Chip8) {
-    for inter._is_game_running{
-        for inter._is_game_paused {}
+    for inter._is_game_paused {}
 
-        if inter._delay_timer > 0 do inter._delay_timer -= 1
+    if inter._delay_timer > 0 do inter._delay_timer -= 1
 
-        if inter._sound_timer > 0 {
-            fmt.print("\a")
-            fmt.printf("\033[1;%dH🔔", display.DISPLAY_WIDTH)
-            inter._sound_timer -= 1
-        } else {
-            fmt.printf("\033[1;%dH ", display.DISPLAY_WIDTH)
-        }
-
-        inter->display_draw()
-        time.sleep((1000 / 60) * time.Millisecond)
+    if inter._sound_timer > 0 {
+        // fmt.print("\a")
+        // fmt.printf("\033[1;%dH🔔", display.DISPLAY_WIDTH)
+        inter._sound_timer -= 1
+    } else {
+        // fmt.printf("\033[1;%dH ", display.DISPLAY_WIDTH)
     }
+
+    inter->display_draw()
 }
 
 @(private)

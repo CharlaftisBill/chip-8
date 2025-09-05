@@ -4,9 +4,8 @@ import "core:io"
 import "core:os"
 import "core:fmt"
 import "core:thread"
-import "core:sys/unix"
-import "core:sys/posix"
-import "core:unicode/utf8"
+import rl "vendor:raylib"
+
 
 @(private)
 COSMAC_KEYBOARD :: [16]u8{
@@ -25,10 +24,7 @@ QWERTY_KEYBOARD :: [16]string{
 }
 
 Input ::struct{
-    _is_game_running         : bool,
     _is_game_paused          : bool,
-
-    _original_termios        : posix.termios,
 
     _keyboard                : [16]bool,    // location with index 16 is for not valid key
     _keyboard_watcher_thread : ^thread.Thread,
@@ -44,43 +40,31 @@ Input ::struct{
 init :: proc() -> ^Input{ 
     input := new(Input)
 
-    input._is_game_running  = true
     input._is_game_paused   = false
 
     input.wait_keypress     = wait_keypress
     input.is_key_pressed    = is_key_pressed
-    input.key_pressed       = key_pressed
-    input.key_released      = key_released
 
     input.inputs_deinit     = deinit
 
-    when ODIN_OS == .Linux{
-        fd := _detect_keyboard()
-        input._keyboard_watcher_thread = thread.create_and_start_with_poly_data2(
-            input,
-            fd,
-            _keyboard_watcher,
-        )
-    }
+    input._keyboard_watcher_thread = thread.create_and_start_with_poly_data(
+        input,
+        keyboard_watcher,
+    )
 
-    enable_raw_mode()
     return input
 }
 
 deinit :: proc (self: ^Input){
 
     self._is_game_paused  = false
-    self._is_game_running = false
 
     thread.destroy(self._keyboard_watcher_thread)
-    disable_raw_mode()
-
     free(self)
 }
 
-
 wait_keypress :: proc(self :^Input)-> u8{
-    fmt.printf("\033[1;1H`wait_keypress`")
+    // fmt.printf("\033[1;1H`wait_keypress`")
 
     temp_cosmac := COSMAC_KEYBOARD
 
@@ -108,29 +92,6 @@ map_cosmac_to_keyboard :: proc(cosmac_key : u8) -> u8 {
 }
 
 @(private)
-map_qwerty_to_keyboard :: proc(qwerty_key : string) -> u8 {    
-    for qwe, i in QWERTY_KEYBOARD {
-        if qwe == qwerty_key{
-            return u8(i)
-        }
-    }
-
-    return 0xff
-}
-
-@(private)
-map_qwerty_to_cosmac :: proc(qwerty_key : string) -> u8 {
-    temp_cosmac := COSMAC_KEYBOARD
-    
-    for qwe, i in QWERTY_KEYBOARD {
-        if qwe == qwerty_key{
-            return temp_cosmac[i]
-        }
-    }
-    return 0xff
-}
-
-@(private)
 map_cosmac_to_qwerty :: proc(cosmac_key : u8) -> string {
     temp_qwerty := QWERTY_KEYBOARD
     
@@ -142,67 +103,25 @@ map_cosmac_to_qwerty :: proc(cosmac_key : u8) -> string {
     return "invalid"
 }
 
+// --- helpers --- 
 @(private)
-key_pressed :: proc(self: ^Input, key : string){
-    fmt.printf("\033[2;1H`key_pressed`")
-
-    if key == "ESC"{
-        menu(self)
+keyboard_watcher :: proc(self: ^Input) {
+    
+    keys :: [16]rl.KeyboardKey{
+        .ONE, .TWO, .THREE, .FOUR,
+        .Q  , .W  , .E    , .R   ,
+        .A  , .S  , .D    , .F   ,
+        .Z  , .X  , .C    , .V   ,
     }
 
-    key := map_qwerty_to_keyboard(key)
-    if key < 16 do self._keyboard[key] = true
-}
-
-@(private)
-key_released :: proc(self: ^Input, key : string){
-    fmt.printf("\033[3;1H`key_released`")
-
-    key := map_qwerty_to_keyboard(key)
-    if key < 16 do self._keyboard[key] = false
-}
-
-@(private)
-menu :: proc(self :^Input){
-
-    self._is_game_paused = true
-    in_stream := os.stream_from_handle(os.stdin)
-
-    // cleans the 'in_stream' 
-    io.flush(in_stream)
-
-    fmt.print("\033[1;1HGame `PAUSED` [q:exit, c:continue]")
-    
-    valid_option := false
-    for !valid_option {
-        key, _, err := io.read_rune(in_stream)
-        assert(err == nil, "A input failure happened during menu!")
+    for !rl.WindowShouldClose(){
         
-        valid_option = true
-        switch key{
-            case 'q', 'Q':
-                self._is_game_running = false
-                self._is_game_paused  = false
-            case 'c', 'C':
-                self._is_game_paused  = false
-            case:
-                valid_option = false
+        // if rl.IsKeyDown(.SPACE) {
+        //     self._is_game_paused = !self._is_game_paused
+        // }
+
+        for key, index in keys {
+            self._keyboard[index] = rl.IsKeyDown(key)
         }
     }
-    fmt.print("\033[1;1H                                  ")
-}
-
-@(private)
-enable_raw_mode :: proc() {
-	_enable_raw_mode()
-}
-
-@(private)
-disable_raw_mode :: proc() {
-	_disable_raw_mode()
-}
-
-@(private)
-set_utf8_terminal :: proc() {
-	_set_utf8_terminal()
 }

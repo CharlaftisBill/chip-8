@@ -26,10 +26,6 @@ decode :: proc(instruction: Instruction) -> ^decoded_instruction {
 	decoded.NN = (u8)(instruction & 0x00FF)
 	decoded.NNN = instruction & 0x0FFF
 
-	// fmt.printfln("%4X -> %X %X %X %X", instruction, decoded.selector, decoded.X, decoded.Y, decoded.N)
-	// fmt.printfln("%4X -> ..%2X", instruction, decoded.NN)
-	// fmt.printfln("%4X -> .%3X", instruction, decoded.NNN)
-
 	switch decoded.selector {
 	case 0x0:
 		decoded.execute = zero_decoder
@@ -69,6 +65,9 @@ decode :: proc(instruction: Instruction) -> ^decoded_instruction {
 			decoded.selector,
 		)
 	}
+
+	// fmt.printfln("%4X -> %X %X %X %X", instruction, decoded.selector, decoded.X, decoded.Y, decoded.N)
+
 	return decoded
 }
 

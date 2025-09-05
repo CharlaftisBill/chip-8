@@ -1,9 +1,9 @@
 package chip8
 
-import "core:fmt"
 import "../inputs"
 import "../display"
 
+import "core:fmt"
 import "core:os"
 import "core:time"
 import "core:thread"
@@ -47,7 +47,7 @@ Chip8 :: struct{
 
     // Methods
     deinit      : proc(self: ^Chip8),
-    run         : proc(self: ^Chip8),
+    run         : proc(inter: ^Chip8, cycles: int = 400),
     load        : proc(self: ^Chip8, path : string),
     stack_push  : proc(self: ^Chip8, element_to_push: u16),
     stack_pop   : proc(self: ^Chip8) -> u16,
@@ -61,8 +61,8 @@ init :: proc() -> ^Chip8{
     chip8._registers = [16]byte{}
     chip8._PC        = 512
 
+    chip8._display   = display.init()
     chip8._input     = inputs.init()
-    // chip8._display   = display.init()
 
     // Methods
     chip8.run        = interpreter_run
@@ -87,8 +87,8 @@ deinit :: proc(self: ^Chip8){
 
     thread.destroy(self._timers_thread)
 
-    self.display_deinit(self._display)
     self.inputs_deinit(self._input)
+    self.display_deinit(self._display)
 
     delete(self._callStack)
     free(self)
